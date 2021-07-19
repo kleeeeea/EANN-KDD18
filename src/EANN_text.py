@@ -1,4 +1,5 @@
 from vzmi.mlx.common.runtime_information.OperatingSystem.Base._components.List_of_GPUs.Available._components.Indicies._bundle import LocalOperatingSystem_set_List_of_AvailableGPUs_Indicies
+from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH
 from vzmi.mlx.io.local_file_system.File.Directory.Base.create import create_LocalDirectory
 from vzmi.mlx.software_engineering.viewing.Logger.log_op import Logger_log
 
@@ -15,9 +16,10 @@ import pandas as pd
 from PIL import Image
 from torchvision import transforms
 
-data_root =
+data_root =  DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH + '/weibo/'
 
-def stopwordslist(filepath='../Data/weibo/stop_words.txt'):
+
+def stopwordslist(filepath=f'{data_root}' + '/stop_words.txt'):
     stopwords = {}
     for line in open(filepath, 'r').readlines():
         line = line.encode("utf-8").strip()
@@ -40,7 +42,7 @@ def clean_str_sst(string):
 #
 def read_image():
     image_list = {}
-    file_list = ['../Data/weibo/nonrumor_images/', '../Data/weibo/rumor_images/']
+    file_list = [f'{data_root}' + '/nonrumor_images/', f'{data_root}' + '/rumor_images/']
     for path in file_list:
         data_transforms = transforms.Compose([
                 transforms.Resize(256),
@@ -65,7 +67,7 @@ def read_image():
 
 
 def write_txt(data):
-    f = open("../Data/weibo/top_n_data.txt", 'wb')
+    f = open(data_root + "top_n_data.txt", 'wb')
     for line in data:
         for l in line:
             f.write(l + "\n")
@@ -80,15 +82,15 @@ text_dict = {}
 def write_data(flag, image, text_only):
     def read_post(flag):
         stop_words = stopwordslist()
-        pre_path = "../Data/weibo/tweets/"
+        pre_path = data_root + "tweets/"
         file_list = [pre_path + "test_nonrumor.txt", pre_path + "test_rumor.txt", \
                      pre_path + "train_nonrumor.txt", pre_path + "train_rumor.txt"]
         if flag == "train":
-            id = pickle.load(open("../Data/weibo/train_id.pickle", 'rb'))
+            id = pickle.load(open(data_root + "train_id.pickle", 'rb'))
         elif flag == "validate":
-            id = pickle.load(open("../Data/weibo/validate_id.pickle", 'rb'))
+            id = pickle.load(open(data_root + "validate_id.pickle", 'rb'))
         elif flag == "test":
-            id = pickle.load(open("../Data/weibo/test_id.pickle", 'rb'))
+            id = pickle.load(open(data_root + "test_id.pickle", 'rb'))
 
         post_content = []
         labels = []
@@ -373,7 +375,7 @@ def get_data(text_only):
 
     #
     #
-    word_embedding_path = "../Data/weibo/w2v.pickle"
+    word_embedding_path = data_root + "w2v.pickle"
 
     w2v = pickle.load(open(word_embedding_path, 'rb'), encoding='latin1')
     # print(temp)
@@ -381,7 +383,7 @@ def get_data(text_only):
     print("word2vec loaded!")
     print(("num words already in word2vec: " + str(len(w2v))))
     # w2v = add_unknown_words(w2v, vocab)
-    # file_path = "../Data/weibo/event_clustering.pickle"
+    # file_path = data_root + "event_clustering.pickle"
     # if not os.path.exists(file_path):
     #     train = []
     #     for l in train_data["post_text"]:
@@ -416,7 +418,7 @@ def get_data(text_only):
     # # rand_vecs = {}
     # # add_unknown_words(rand_vecs, vocab)
     W2 = rand_vecs = {}
-    w_file = open("../Data/weibo/word_embedding.pickle", "wb")
+    w_file = open(data_root + "word_embedding.pickle", "wb")
     pickle.dump([W, W2, word_idx_map, vocab, max_l], w_file)
     w_file.close()
     return train_data, valiate_data, test_data
@@ -442,7 +444,7 @@ def get_data(text_only):
 #     #
 #     # #
 #     # #
-#     # word_embedding_path = "../Data/weibo/word_embedding.pickle"
+#     # word_embedding_path = data_root + "word_embedding.pickle"
 #     # if not os.path.exists(word_embedding_path):
 #     #     min_count = 1
 #     #     size = 32
@@ -463,7 +465,7 @@ def get_data(text_only):
 #     # print("num words already in word2vec: " + str(len(w2v)))
 #     # # w2v = add_unknown_words(w2v, vocab)
 #     # Whole_data = {}
-#     # file_path = "../Data/weibo/event_clustering.pickle"
+#     # file_path = data_root + "event_clustering.pickle"
 #     # # if not os.path.exists(file_path):
 #     # #     data = []
 #     # #     for l in train_data["post_text"]:
@@ -500,7 +502,7 @@ def get_data(text_only):
 #     # # # rand_vecs = {}
 #     # # # add_unknown_words(rand_vecs, vocab)
 #     # W2 = rand_vecs = {}
-#     # pickle.dump([W, W2, word_idx_map, vocab, max_l], open("../Data/weibo/word_embedding.pickle", "wb"))
+#     # pickle.dump([W, W2, word_idx_map, vocab, max_l], open(data_root + "word_embedding.pickle", "wb"))
 #     # print("dataset created!")
 
 
@@ -773,7 +775,7 @@ def main(args):
     #                              num_workers=2)
 
     # MNIST Dataset
-    train, validation, test, W = load_data(args)
+    train, validation, test, W = load_data_from_args(args)
 
     # train, validation = split_train_validation(train,  1)
 
@@ -1026,10 +1028,10 @@ def word2vec(post, word_id_map, W):
     return word_embedding, mask
 
 
-def load_data(args):
-    train, validate, test = process_data_weibo.get_data(args.text_only)
+def load_data_from_args(args):
+    train, validate, test = get_data(args.text_only)
     # print(train[4][0])
-    word_vector_path = '../Data/weibo/word_embedding.pickle'
+    word_vector_path = f'{data_root}' + '/word_embedding.pickle'
     f = open(word_vector_path, 'rb')
     weight = pickle.load(f)  # W, W2, word_idx_map, vocab
     W, W2, word_idx_map, vocab, max_len = weight[0], weight[1], weight[2], weight[3], weight[4]
@@ -1066,8 +1068,8 @@ def transform(event):
 if __name__ == '__main__':
     parse = argparse.ArgumentParser()
     parser = parse_arguments(parse)
-    train = '../Data/weibo/train.pickle'
-    test = '../Data/weibo/test.pickle'
+    train = f'{data_root}' + '/train.pickle'
+    test = f'{data_root}' + '/test.pickle'
     output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
     args = parser.parse_args([train, test, output])
     #    print(args)
