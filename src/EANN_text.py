@@ -8,7 +8,6 @@ from vzmi.mlx.software_engineering.viewing.Logger.log_op import Logger_log
 
 LocalOperatingSystem_set_List_of_AvailableGPUs_Indicies(1)
 
-import argparse
 import copy
 import pickle as pickle
 from random import sample
@@ -496,18 +495,20 @@ def grad_reverse(x):
 
 # Neural Network Model (1 hidden layer)
 class CNN_Fusion(nn.Module):
-    def __init__(self, args, W):
+    def __init__(self, W, vocab_size):
         super(CNN_Fusion, self).__init__()
-        self.args = args
+        # self.args = args
 
-        self.event_num = args.event_num
+        self.event_num = 10
 
-        vocab_size = args.vocab_size
-        emb_dim = args.embed_dim
+        vocab_size = vocab_size
+        dim = 32
+        # embed_dim
+        emb_dim = dim
 
-        # C = args.class_num
-        self.hidden_size = args.hidden_dim
-        self.lstm_size = args.embed_dim
+        # C = class_num
+        self.hidden_size = 32
+        self.lstm_size = dim
         self.social_size = 19
 
         # TEXT RNN
@@ -527,10 +528,10 @@ class CNN_Fusion(nn.Module):
 
         self.fc1 = nn.Linear(len(window_size) * filter_num, self.hidden_size)
 
-        self.dropout = nn.Dropout(args.dropout)
+        self.dropout = nn.Dropout(0.5)
 
         # IMAGE
-        # hidden_size = args.hidden_dim
+        # hidden_size = hidden_dim
         vgg_19 = torchvision.models.vgg19(pretrained=True)
         for param in vgg_19.parameters():
             param.requires_grad = False
@@ -695,16 +696,16 @@ def split_train_validation(train, percent):
     return train_data, validation
 
 
-def main(args):
+def main():
     print('loading data')
-    #    dataset = DiabetesDataset(root=args.training_file)
+    #    dataset = DiabetesDataset(roottraining_file)
     #    train_loader = DataLoader(dataset=dataset,
     #                              batch_size=32,
     #                              shuffle=True,
     #                              num_workers=2)
 
     # MNIST Dataset
-    train, validation, test, W, max_len = load_data_from_args(args)
+    train, validation, test, W, max_len, vocab_size = load_data_from_args()
 
     # train, validation = split_train_validation(train,  1)
 
@@ -719,20 +720,22 @@ def main(args):
     test_dataset = Rumor_Data(test)  # not used
 
     # Data Loader (Input Pipeline)
+    batch_size = 100
+    # batch_size
     train_loader = DataLoader(dataset=train_dataset,
-                              batch_size=args.batch_size,
+                              batch_size=batch_size,
                               shuffle=True)
 
     validate_loader = DataLoader(dataset=validate_dataset,
-                                 batch_size=args.batch_size,
+                                 batch_size=batch_size,
                                  shuffle=False)
 
     test_loader = DataLoader(dataset=test_dataset,
-                             batch_size=args.batch_size,
+                             batch_size=batch_size,
                              shuffle=False)
 
     print('building model')
-    model = CNN_Fusion(args, W)
+    model = CNN_Fusion(W, vocab_size)
 
     if torch.cuda.is_available():
         Logger_log("CUDA")
@@ -745,9 +748,9 @@ def main(args):
 
     # Adadelta(params, lr=1.0, rho=0.9, eps=1e-06, weight_decay=0)
     optimizer = torch.optim.Adam([p for p in list(model.parameters()) if p.requires_grad],
-                                 lr=args.learning_rate)
+                                 lr=0.001)
     # optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, list(model.parameters())),
-    # lr=args.learning_rate)
+    # lr=learning_rate)
     # scheduler = StepLR(optimizer, step_size= 10, gamma= 1)
 
     # iter_per_epoch = len(train_loader)
@@ -759,7 +762,9 @@ def main(args):
     print('training model')
     # adversarial = True
     # Train the Model
-    for epoch in range(args.num_epochs):
+    num_epochs = 100
+    # .num_epochs
+    for epoch in range(num_epochs):
 
         # p = float(epoch) / 100
         # lambd = 2. / (1. + np.exp(-10. * p)) - 1
@@ -845,7 +850,7 @@ def main(args):
         model.train()
         print(('Epoch [%d/%d],  Loss: %.4f, Class Loss: %.4f, validate loss: %.4f, Train_Acc: %.4f,  Validate_Acc: %.4f.'
                % (
-                       epoch + 1, args.num_epochs,
+                       epoch + 1, num_epochs,
                        DenseMultiDimensionalArray_to_List(np.mean(cost_vector)),
                        DenseMultiDimensionalArray_to_List(np.mean(class_cost_vector)),
                        np.mean(vali_cost_vector).item(),
@@ -855,18 +860,19 @@ def main(args):
 
         if validate_acc > best_validate_acc:
             best_validate_acc = validate_acc
-            create_LocalDirectory(args.output_file)
-            best_validate_dir = args.output_file + str(epoch + 1) + '_text.pkl'
+            output_file = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
+            create_LocalDirectory(output_file)
+            best_validate_dir = output_file + str(epoch + 1) + '_text.pkl'
             torch.save(model.state_dict(), best_validate_dir)
 
     # duration = time.time() - start_time
     # print ('Epoch: %d, Mean_Cost: %.4f, Duration: %.4f, Mean_Train_Acc: %.4f, Mean_Test_Acc: %.4f'
     # % (epoch + 1, np.mean(cost_vector), duration, np.mean(acc_vector), np.mean(test_acc_vector)))
-    # best_validate_dir = args.output_file + 'baseline_text_weibo_GPU2_out.' + str(20) + '.pkl'
+    # best_validate_dir = output_file + 'baseline_text_weibo_GPU2_out.' + str(20) + '.pkl'
 
     # Test the Model
     print('testing model')
-    model = CNN_Fusion(args, W)
+    model = CNN_Fusion(W, vocab_size)
     model.load_state_dict(torch.load(best_validate_dir))
     #    print(torch.cuda.is_available())
     if torch.cuda.is_available():
@@ -937,15 +943,15 @@ def word2vec(post, word_id_map, sequence_len=28):
     return word_embedding, mask
 
 
-def load_data_from_args(args):
+def load_data_from_args():
     train, validate, test = get_data()
     # print(train[4][0])
     word_vector_path = f'{data_root}' + '/word_embedding.pickle'
     f = open(word_vector_path, 'rb')
     weight = pickle.load(f)  # W, W2, word_idx_map, vocab
     W, W2, word_idx_map, vocab, max_len = weight[0], weight[1], weight[2], weight[3], weight[4]
-    args.vocab_size = len(vocab)
-    # args.sequence_len = max_len
+    vocab_size = len(vocab)
+    # sequence_len = max_len
     print("translate data to embedding")
 
     word_embedding, mask = word2vec(validate['post_text'], word_idx_map, max_len)
@@ -966,7 +972,7 @@ def load_data_from_args(args):
     print(("sequence length " + str(max_len)))
     print(("Train Data Size is " + str(len(train['post_text']))))
     print("Finished loading data ")
-    return train, validate, test, W, max_len
+    return train, validate, test, W, max_len, vocab_size
 
 
 def transform(event):
@@ -978,42 +984,42 @@ def transform(event):
 
 
 def driver():
-    parser = argparse.ArgumentParser()
+    # parser = argparse.ArgumentParser()
+    #
+    # parser.add_argument('training_file', type=str, metavar='<training_file>', help='')
+    # # parser.add_argument('validation_file', type=str, metavar='<validation_file>', help='')
+    # parser.add_argument('testing_file', type=str, metavar='<testing_file>', help='')
+    # parser.add_argument('output_file', type=str, metavar='<output_file>', help='')
+    #
+    # parser.add_argument('--static', type=bool, default=True, help='')
+    # parser.add_argument('--sequence_length', type=int, default=28, help='')
+    # parser.add_argument('--class_num', type=int, default=2, help='')
+    # parser.add_argument('--hidden_dim', type=int, default=32, help='')
+    # parser.add_argument('--embed_dim', type=int, default=32, help='')
+    # parser.add_argument('--vocab_size', type=int, default=300, help='')
+    # parser.add_argument('--dropout', type=int, default=0.5, help='')
+    # parser.add_argument('--filter_num', type=int, default=20, help='')
+    # parser.add_argument('--lambd', type=int, default=1, help='')
+    # parser.add_argument('--text_only', type=bool, default=True, help='')
+    #
+    # #    parser.add_argument('--sequence_length', type = int, default = 28, help = '')
+    # #    parser.add_argument('--input_size', type = int, default = 28, help = '')
+    # #    parser.add_argument('--hidden_size', type = int, default = 128, help = '')
+    # #    parser.add_argument('--num_layers', type = int, default = 2, help = '')
+    # #    parser.add_argument('--num_classes', type = int, default = 10, help = '')
+    # parser.add_argument('--d_iter', type=int, default=3, help='')
+    # parser.add_argument('--batch_size', type=int, default=100, help='')
+    # parser.add_argument('--num_epochs', type=int, default=100, help='')
+    # parser.add_argument('--learning_rate', type=float, default=0.001, help='')
+    # parser.add_argument('--event_num', type=int, default=10, help='')
 
-    parser.add_argument('training_file', type=str, metavar='<training_file>', help='')
-    # parser.add_argument('validation_file', type=str, metavar='<validation_file>', help='')
-    parser.add_argument('testing_file', type=str, metavar='<testing_file>', help='')
-    parser.add_argument('output_file', type=str, metavar='<output_file>', help='')
-
-    parser.add_argument('--static', type=bool, default=True, help='')
-    parser.add_argument('--sequence_length', type=int, default=28, help='')
-    parser.add_argument('--class_num', type=int, default=2, help='')
-    parser.add_argument('--hidden_dim', type=int, default=32, help='')
-    parser.add_argument('--embed_dim', type=int, default=32, help='')
-    parser.add_argument('--vocab_size', type=int, default=300, help='')
-    parser.add_argument('--dropout', type=int, default=0.5, help='')
-    parser.add_argument('--filter_num', type=int, default=20, help='')
-    parser.add_argument('--lambd', type=int, default=1, help='')
-    parser.add_argument('--text_only', type=bool, default=True, help='')
-
-    #    parser.add_argument('--sequence_length', type = int, default = 28, help = '')
-    #    parser.add_argument('--input_size', type = int, default = 28, help = '')
-    #    parser.add_argument('--hidden_size', type = int, default = 128, help = '')
-    #    parser.add_argument('--num_layers', type = int, default = 2, help = '')
-    #    parser.add_argument('--num_classes', type = int, default = 10, help = '')
-    parser.add_argument('--d_iter', type=int, default=3, help='')
-    parser.add_argument('--batch_size', type=int, default=100, help='')
-    parser.add_argument('--num_epochs', type=int, default=100, help='')
-    parser.add_argument('--learning_rate', type=float, default=0.001, help='')
-    parser.add_argument('--event_num', type=int, default=10, help='')
-
-    test = f'{data_root}' + '/test.pickle'
-    output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
-    args = parser.parse_args([
-            f'{data_root}' + '/train.pickle', test, output
-    ])
+    # test = f'{data_root}' + '/test.pickle'
+    # output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
+    # args = parser.parse_args([
+    #         f'{data_root}' + '/train.pickle', test, output
+    # ])
     #    print(args)
-    main(args)
+    main()
 
 
 if __name__ == '__main__':
