@@ -1,22 +1,41 @@
+from vzmi.mlx.common.Variable.GenericContainer.List.NestedList.OfGivenShape.MultiDimensionalArray.Dense.Base._OfBaseValueDistribution.io_ops.to_List import DenseMultiDimensionalArray_to_List
 from vzmi.mlx.common.runtime_information.OperatingSystem.Base._components.List_of_GPUs.Available._components.Indicies._bundle import LocalOperatingSystem_set_List_of_AvailableGPUs_Indicies
+from vzmi.mlx.data_science.Prediction.ForMultiDimensionalArray.Base._components.Model.Base.Pytorch._components.Tensor._components.Device.set_op import PytorchModel_Tensor_set_Device
+from vzmi.mlx.data_science.Prediction.ForMultiDimensionalArray.Base._components.Model.Base.Pytorch._components.Tensor._components.Value.get_ import PytorchModel_Tensor_get_Value
 from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH
 from vzmi.mlx.io.local_file_system.File.Directory.Base.create import create_LocalDirectory
 from vzmi.mlx.software_engineering.viewing.Logger.log_op import Logger_log
 
 LocalOperatingSystem_set_List_of_AvailableGPUs_Indicies(1)
 
+import argparse
+import copy
+import pickle as pickle
+from random import sample
+
+import numpy as np
+# import random
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision
+from sklearn import metrics
+from torch.autograd import Function
+from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
+from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import LOGS_ROOT_LOCAL_PATH
+from vzmi.mlx.software_engineering.viewing.Logger._backends.Local._bundle import filter_warnings
+
+filter_warnings()
+IS_VERBOSE = True
 # encoding=utf-8
-import os
-import os.path
 import re
 from collections import defaultdict
 
 import jieba
 import pandas as pd
-from PIL import Image
-from torchvision import transforms
 
-data_root =  DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH + '/weibo/'
+data_root = DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH + '/weibo/'
 
 
 def stopwordslist(filepath=f'{data_root}' + '/stop_words.txt'):
@@ -32,7 +51,7 @@ def clean_str_sst(string):
     """
     Tokenization/string cleaning for the SST dataset
     """
-    string = re.sub("[，。 :,.；|-“”——_/nbsp+&;@、《》～（）())#O！：【】]", "", string)
+    string = re.sub("[，。 :,.；|-“”—_/nbsp+&;@、《》～（）()#O！：【】]", "", string)
     return string.strip().lower()
 
 
@@ -40,30 +59,30 @@ def clean_str_sst(string):
 # reload(sys)
 # sys.setdefaultencoding("utf-8")
 #
-def read_image():
-    image_list = {}
-    file_list = [f'{data_root}' + '/nonrumor_images/', f'{data_root}' + '/rumor_images/']
-    for path in file_list:
-        data_transforms = transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-        for i, filename in enumerate(os.listdir(path)):  # assuming gif
-
-            # print(filename)
-            try:
-                im = Image.open(path + filename).convert('RGB')
-                im = data_transforms(im)
-                # im = 1
-                image_list[filename.split('/')[-1].split(".")[0].lower()] = im
-            except:
-                print(filename)
-    print(("image length " + str(len(image_list))))
-    # print("image names are " + str(image_list.keys()))
-    return image_list
+# def read_image():
+#     image_list = {}
+#     file_list = [f'{data_root}' + '/nonrumor_images/', f'{data_root}' + '/rumor_images/']
+#     for path in file_list:
+#         data_transforms = transforms.Compose([
+#                 transforms.Resize(256),
+#                 transforms.CenterCrop(224),
+#                 transforms.ToTensor(),
+#                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+#         ])
+#
+#         for i, filename in enumerate(os.listdir(path)):  # assuming gif
+#
+#             # print(filename)
+#             try:
+#                 im = Image.open(path + filename).convert('RGB')
+#                 im = data_transforms(im)
+#                 # im = 1
+#                 image_list[filename.split('/')[-1].split(".")[0].lower()] = im
+#             except Exce:
+#                 print(filename)
+#     print(("image length " + str(len(image_list))))
+#     # print("image names are " + str(image_list.keys()))
+#     return image_list
 
 
 def write_txt(data):
@@ -71,8 +90,8 @@ def write_txt(data):
     for line in data:
         for l in line:
             f.write(l + "\n")
-        f.write("\n")
-        f.write("\n")
+        f.write(b"\n")
+        f.write(b"\n")
     f.close()
 
 
@@ -80,25 +99,26 @@ text_dict = {}
 
 
 def write_data(flag, image, text_only):
-    def read_post(flag):
+    def read_post(flag1):
         stop_words = stopwordslist()
         pre_path = data_root + "tweets/"
-        file_list = [pre_path + "test_nonrumor.txt", pre_path + "test_rumor.txt", \
+        file_list = [pre_path + "test_nonrumor.txt", pre_path + "test_rumor.txt",
                      pre_path + "train_nonrumor.txt", pre_path + "train_rumor.txt"]
-        if flag == "train":
-            id = pickle.load(open(data_root + "train_id.pickle", 'rb'))
-        elif flag == "validate":
-            id = pickle.load(open(data_root + "validate_id.pickle", 'rb'))
-        elif flag == "test":
-            id = pickle.load(open(data_root + "test_id.pickle", 'rb'))
-
-        post_content = []
-        labels = []
-        image_ids = []
-        twitter_ids = []
+        if flag1 == "train":
+            id1 = pickle.load(open(data_root + "train_id.pickle", 'rb'))
+        elif flag1 == "validate":
+            id1 = pickle.load(open(data_root + "validate_id.pickle", 'rb'))
+        elif flag1 == "test":
+            id1 = pickle.load(open(data_root + "test_id.pickle", 'rb'))
+        else:
+            raise NotImplementedError
+        post_content1 = []
+        # labels = []
+        # image_ids = []
+        # twitter_ids = []
         data = []
         column = ['post_id', 'image_id', 'original_post', 'post_text', 'label', 'event_label']
-        key = -1
+        # key = -1
         map_id = {}
         top_data = []
         for k, f in enumerate(file_list):
@@ -109,9 +129,9 @@ def write_data(flag, image, text_only):
             else:
                 label = 1  ####fake is 1
 
-            twitter_id = 0
+            # twitter_id = 0
             line_data = []
-            top_line_data = []
+            # top_line_data = []
 
             for i, l in enumerate(f.readlines()):
                 # key += 1
@@ -138,12 +158,12 @@ def write_data(flag, image, text_only):
                             new_seg_list.append(word)
 
                     clean_l = " ".join(new_seg_list)
-                    if len(clean_l) > 10 and line_data[0] in id:
-                        post_content.append(l)
+                    if len(clean_l) > 10 and line_data[0] in id1:
+                        post_content1.append(l)
                         line_data.append(l)
                         line_data.append(clean_l)
                         line_data.append(label)
-                        event = int(id[line_data[0]])
+                        event = int(id1[line_data[0]])
                         if event not in map_id:
                             map_id[event] = len(map_id)
                             event = map_id[event]
@@ -161,23 +181,23 @@ def write_data(flag, image, text_only):
         data_df = pd.DataFrame(np.array(data), columns=column)
         write_txt(top_data)
 
-        return post_content, data_df
+        return post_content1, data_df
 
     post_content, post = read_post(flag)
     print(("Original post length is " + str(len(post_content))))
     print(("Original data frame is " + str(post.shape)))
 
-    def find_most(db):
-        maxcount = max(len(v) for v in list(db.values()))
-        return [k for k, v in list(db.items()) if len(v) == maxcount]
-
-    def select(train, selec_indices):
-        temp = []
-        for i in range(len(train)):
-            ele = list(train[i])
-            temp.append([ele[i] for i in selec_indices])
-            #   temp.append(np.array(train[i])[selec_indices])
-        return temp
+    # def find_most(db):
+    #     maxcount = max(len(v) for v in list(db.values()))
+    #     return [k for k, v in list(db.items()) if len(v) == maxcount]
+    #
+    # def select(train, selec_indices):
+    #     temp = []
+    #     for i in range(len(train)):
+    #         ele = list(train[i])
+    #         temp.append([ele[i] for i in selec_indices])
+    #         #   temp.append(np.array(train[i])[selec_indices])
+    #     return temp
 
     #     def balance_event(data, event_list):
     #         id = find_most(event_list)[0]
@@ -186,7 +206,7 @@ def write_data(flag, image, text_only):
     #         select_indices = np.delete(range(len(data[0])), remove_indice)
     #         return select(data, select_indices)
 
-    def paired(text_only=False):
+    def paired(text_only1=False):
         ordered_image = []
         ordered_text = []
         ordered_post = []
@@ -197,21 +217,21 @@ def write_data(flag, image, text_only):
         # image = []
 
         image_id = ""
-        for i, id in enumerate(post['post_id']):
+        for i, id1 in enumerate(post['post_id']):
             for image_id in post.iloc[i]['image_id'].split('|'):
                 image_id = image_id.split("/")[-1].split(".")[0]
                 if image_id in image:
                     break
 
-            if text_only or image_id in image:
-                if not text_only:
+            if text_only1 or image_id in image:
+                if not text_only1:
                     image_name = image_id
                     image_id_list.append(image_name)
                     ordered_image.append(image[image_name])
                 ordered_text.append(post.iloc[i]['original_post'])
                 ordered_post.append(post.iloc[i]['post_text'])
                 ordered_event.append(post.iloc[i]['event_label'])
-                post_id.append(id)
+                post_id.append(id1)
 
                 label.append(post.iloc[i]['label'])
 
@@ -223,15 +243,15 @@ def write_data(flag, image, text_only):
         print(("Non rummor is " + str(len(label) - sum(label))))
 
         #
-        if flag == "test":
-            y = np.zeros(len(ordered_post))
-        else:
-            y = []
+        # if flag == "test":
+        #     y = np.zeros(len(ordered_post))
+        # else:
+        #     y = []
 
         data = {"post_text"    : np.array(ordered_post),
                 "original_post": np.array(ordered_text),
                 "image"        : ordered_image, "social_feature": [],
-                "label"        : np.array(label), \
+                "label"        : np.array(label),
                 "event_label"  : ordered_event, "post_id": np.array(post_id),
                 "image_id"     : image_id_list}
         # print(data['image'][0])
@@ -256,49 +276,6 @@ def load_data(train, validate, test):
     return vocab, all_text
 
 
-def build_data_cv(data_folder, cv=10, clean_string=True):
-    """
-    Loads data and split into 10 folds.
-    """
-    revs = []
-    pos_file = data_folder[0]
-    neg_file = data_folder[1]
-    vocab = defaultdict(float)
-    with open(pos_file, "rb") as f:
-        for line in f:
-            rev = []
-            rev.append(line.strip())
-            if clean_string:
-                orig_rev = clean_str(" ".join(rev))
-            else:
-                orig_rev = " ".join(rev).lower()
-            words = set(orig_rev.split())
-            for word in words:
-                vocab[word] += 1
-            datum = {"y"        : 1,
-                     "text"     : orig_rev,
-                     "num_words": len(orig_rev.split()),
-                     "split"    : np.random.randint(0, cv)}
-            revs.append(datum)
-    with open(neg_file, "rb") as f:
-        for line in f:
-            rev = []
-            rev.append(line.strip())
-            if clean_string:
-                orig_rev = clean_str(" ".join(rev))
-            else:
-                orig_rev = " ".join(rev).lower()
-            words = set(orig_rev.split())
-            for word in words:
-                vocab[word] += 1
-            datum = {"y"        : 0,
-                     "text"     : orig_rev,
-                     "num_words": len(orig_rev.split()),
-                     "split"    : np.random.randint(0, cv)}
-            revs.append(datum)
-    return revs, vocab
-
-
 def get_W(word_vecs, k=32):
     """
     Get word matrix. W[i] is the vector for word indexed by i
@@ -315,31 +292,6 @@ def get_W(word_vecs, k=32):
     return W, word_idx_map
 
 
-def load_bin_vec(fname, vocab):
-    """
-    Loads 300x1 word vecs from Google (Mikolov) word2vec
-    """
-    word_vecs = {}
-    with open(fname, "rb") as f:
-        header = f.readline()
-        vocab_size, layer1_size = list(map(int, header.split()))
-        binary_len = np.dtype('float32').itemsize * layer1_size
-        for line in range(vocab_size):
-            word = []
-            while True:
-                ch = f.read(1)
-                if ch == ' ':
-                    word = ''.join(word)
-                    break
-                if ch != '\n':
-                    word.append(ch)
-            if word in vocab:
-                word_vecs[word] = np.fromstring(f.read(binary_len), dtype='float32')
-            else:
-                f.read(binary_len)
-    return word_vecs
-
-
 def add_unknown_words(word_vecs, vocab, min_df=1, k=32):
     """
     For words that occur in at least min_df documents, create a separate word vector.
@@ -350,14 +302,11 @@ def add_unknown_words(word_vecs, vocab, min_df=1, k=32):
             word_vecs[word] = np.random.uniform(-0.25, 0.25, k)
 
 
-def get_data(text_only):
+def get_data():
+    text_only = True
     # text_only = False
-    if text_only:
-        print("Text only")
-        image_list = []
-    else:
-        print("Text and image")
-        image_list = read_image()
+    print("Text only")
+    image_list = []
 
     train_data = write_data("train", image_list, text_only)
     valiate_data = write_data("validate", image_list, text_only)
@@ -417,7 +366,8 @@ def get_data(text_only):
     W, word_idx_map = get_W(w2v)
     # # rand_vecs = {}
     # # add_unknown_words(rand_vecs, vocab)
-    W2 = rand_vecs = {}
+    W2 = {}
+    # rand_vecs =
     w_file = open(data_root + "word_embedding.pickle", "wb")
     pickle.dump([W, W2, word_idx_map, vocab, max_l], w_file)
     w_file.close()
@@ -506,30 +456,6 @@ def get_data(text_only):
 #     # print("dataset created!")
 
 
-import argparse
-import copy
-import pickle as pickle
-import time
-from random import sample
-
-import numpy as np
-# import random
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
-from sklearn import metrics
-from torch.autograd import Function
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-from torch.utils.data import Dataset
-from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import LOGS_ROOT_LOCAL_PATH
-from vzmi.mlx.software_engineering.viewing.Logger._backends.Local._bundle import filter_warnings
-
-filter_warnings()
-IS_VERBOSE = True
-
-
 # from logger import Logger
 
 class Rumor_Data(Dataset):
@@ -555,7 +481,7 @@ class ReverseLayerF(Function):
 
     # @staticmethod
     def forward(self, x):
-        self.lambd = args.lambd
+        self.lambd = 1
         return x.view_as(x)
 
     # @staticmethod
@@ -564,6 +490,7 @@ class ReverseLayerF(Function):
 
 
 def grad_reverse(x):
+    # noinspection PyCallingNonCallable
     return ReverseLayerF()(x)
 
 
@@ -578,7 +505,7 @@ class CNN_Fusion(nn.Module):
         vocab_size = args.vocab_size
         emb_dim = args.embed_dim
 
-        C = args.class_num
+        # C = args.class_num
         self.hidden_size = args.hidden_dim
         self.lstm_size = args.embed_dim
         self.social_size = 19
@@ -586,6 +513,7 @@ class CNN_Fusion(nn.Module):
         # TEXT RNN
 
         self.embed = nn.Embedding(vocab_size, emb_dim)
+        # noinspection PyArgumentList
         self.embed.weight = nn.Parameter(torch.from_numpy(W))
         self.lstm = nn.LSTM(self.lstm_size, self.lstm_size)
         self.text_fc = nn.Linear(self.lstm_size, self.hidden_size)
@@ -653,8 +581,8 @@ class CNN_Fusion(nn.Module):
         # Refer to the Pytorch documentation to see exactly
         # why they have this dimensionality.
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        return (to_var(torch.zeros(1, batch_size, self.lstm_size)),
-                to_var(torch.zeros(1, batch_size, self.lstm_size)))
+        return (PytorchModel_Tensor_get_Value(torch.zeros(1, batch_size, self.lstm_size)),
+                PytorchModel_Tensor_get_Value(torch.zeros(1, batch_size, self.lstm_size)))
 
     def conv_and_pool(self, x, conv):
         x = F.relu(conv(x)).squeeze(3)  # (sample number,hidden_dim, length)
@@ -716,10 +644,10 @@ class CNN_Fusion(nn.Module):
         return class_output, domain_output
 
 
-def to_var(x):
-    if torch.cuda.is_available():
-        x = x.cuda()
-    return Variable(x)
+# def PytorchModel_Tensor_get_Value(x):
+#     if torch.cuda.is_available():
+#         x = x.cuda()
+#     return Variable(x)
 
 
 def to_np(x):
@@ -747,6 +675,7 @@ def make_weights_for_balanced_classes(event, nclasses=15):
         weight_per_class[i] = N / float(count[i])
     weight = [0] * len(event)
     for idx, val in enumerate(event):
+        # noinspection PyTypeChecker
         weight[idx] = weight_per_class[val]
     return weight
 
@@ -775,7 +704,7 @@ def main(args):
     #                              num_workers=2)
 
     # MNIST Dataset
-    train, validation, test, W = load_data_from_args(args)
+    train, validation, test, W, max_len = load_data_from_args(args)
 
     # train, validation = split_train_validation(train,  1)
 
@@ -821,64 +750,66 @@ def main(args):
     # lr=args.learning_rate)
     # scheduler = StepLR(optimizer, step_size= 10, gamma= 1)
 
-    iter_per_epoch = len(train_loader)
+    # iter_per_epoch = len(train_loader)
     print(("loader size " + str(len(train_loader))))
     best_validate_acc = 0.000
-    best_loss = 100
+    # best_loss = 100
     best_validate_dir = ''
 
     print('training model')
-    adversarial = True
+    # adversarial = True
     # Train the Model
     for epoch in range(args.num_epochs):
 
-        p = float(epoch) / 100
+        # p = float(epoch) / 100
         # lambd = 2. / (1. + np.exp(-10. * p)) - 1
         lr = 0.001
 
         optimizer.lr = lr
         # rgs.lambd = lambd
 
-        start_time = time.time()
+        # start_time = time.time()
         cost_vector = []
         class_cost_vector = []
-        domain_cost_vector = []
+        # domain_cost_vector = []
         acc_vector = []
         valid_acc_vector = []
-        test_acc_vector = []
+        # test_acc_vector = []
         vali_cost_vector = []
-        test_cost_vector = []
+        # test_cost_vector = []
 
         for i, (train_data, train_labels, event_labels) in enumerate(train_loader):
             train_text, train_mask, train_labels, event_labels = \
-                to_var(train_data[0]), to_var(train_data[1]), \
-                to_var(train_labels), to_var(event_labels)
+                PytorchModel_Tensor_set_Device(train_data[0]), PytorchModel_Tensor_set_Device(train_data[1]), \
+                PytorchModel_Tensor_set_Device(train_labels), PytorchModel_Tensor_set_Device(event_labels)
 
             # Forward + Backward + Optimize
             optimizer.zero_grad()
 
             class_outputs, domain_outputs = model.__call__(train_text, train_mask)
             # ones = torch.ones(text_output.size(0))
-            # ones_label = to_var(ones.type(torch.LongTensor))
+            # ones_label = PytorchModel_Tensor_get_Value(ones.type(torch.LongTensor))
             # zeros = torch.zeros(image_output.size(0))
-            # zeros_label = to_var(zeros.type(torch.LongTensor))
+            # zeros_label = PytorchModel_Tensor_get_Value(zeros.type(torch.LongTensor))
 
             # modal_loss = criterion(text_output, ones_label)+ criterion(image_output, zeros_label)
 
+            # noinspection PyTypeChecker
             class_loss = criterion(class_outputs, train_labels)
+            # noinspection PyTypeChecker
             domain_loss = criterion(domain_outputs, event_labels)
             loss = class_loss + domain_loss
             loss.backward()
             optimizer.step()
             _, argmax = torch.max(class_outputs, 1)
 
-            cross_entropy = True
+            # cross_entropy = True
 
-            if True:
-                accuracy = (train_labels == argmax.squeeze()).float().mean()
-            else:
-                _, labels = torch.max(train_labels, 1)
-                accuracy = (labels.squeeze() == argmax.squeeze()).float().mean()
+            # if True:
+            accuracy = (train_labels == argmax.squeeze()).float().mean()
+            # else:
+            #     _, labels = torch.max(train_labels, 1)
+            #     accuracy = (labels.squeeze() == argmax.squeeze()).float().mean()
 
             class_cost_vector.append(class_loss.data.item())
             # domain_cost_vector.append(domain_loss.item())
@@ -897,10 +828,11 @@ def main(args):
         validate_acc_vector_temp = []
         for i, (validate_data, validate_labels, event_labels) in enumerate(validate_loader):
             validate_text, validate_mask, validate_labels, event_labels = \
-                to_var(validate_data[0]), to_var(validate_data[1]), \
-                to_var(validate_labels), to_var(event_labels)
+                PytorchModel_Tensor_set_Device(validate_data[0]), PytorchModel_Tensor_set_Device(validate_data[1]), \
+                PytorchModel_Tensor_set_Device(validate_labels), PytorchModel_Tensor_set_Device(event_labels)
             validate_outputs, domain_outputs = model(validate_text, validate_mask)
             _, validate_argmax = torch.max(validate_outputs, 1)
+            # noinspection PyTypeChecker
             vali_loss = criterion(validate_outputs, validate_labels)
             # domain_loss = criterion(domain_outputs, event_labels)
             # _, labels = torch.max(validate_labels, 1)
@@ -913,8 +845,13 @@ def main(args):
         model.train()
         print(('Epoch [%d/%d],  Loss: %.4f, Class Loss: %.4f, validate loss: %.4f, Train_Acc: %.4f,  Validate_Acc: %.4f.'
                % (
-                       epoch + 1, args.num_epochs, np.mean(cost_vector), np.mean(class_cost_vector), np.mean(vali_cost_vector),
-                       np.mean(acc_vector), validate_acc,)))
+                       epoch + 1, args.num_epochs,
+                       DenseMultiDimensionalArray_to_List(np.mean(cost_vector)),
+                       DenseMultiDimensionalArray_to_List(np.mean(class_cost_vector)),
+                       np.mean(vali_cost_vector).item(),
+                       np.mean(acc_vector).item(),
+                       validate_acc.item(),
+               )))
 
         if validate_acc > best_validate_acc:
             best_validate_acc = validate_acc
@@ -922,7 +859,7 @@ def main(args):
             best_validate_dir = args.output_file + str(epoch + 1) + '_text.pkl'
             torch.save(model.state_dict(), best_validate_dir)
 
-    duration = time.time() - start_time
+    # duration = time.time() - start_time
     # print ('Epoch: %d, Mean_Cost: %.4f, Duration: %.4f, Mean_Train_Acc: %.4f, Mean_Test_Acc: %.4f'
     # % (epoch + 1, np.mean(cost_vector), duration, np.mean(acc_vector), np.mean(test_acc_vector)))
     # best_validate_dir = args.output_file + 'baseline_text_weibo_GPU2_out.' + str(20) + '.pkl'
@@ -943,8 +880,9 @@ def main(args):
     test_pred = []
     test_true = []
     for i, (test_data, test_labels, event_labels) in enumerate(test_loader):
-        test_text, test_mask, test_labels = to_var(
-                test_data[0]), to_var(test_data[1]), to_var(test_labels)
+        test_text, test_mask, test_labels = PytorchModel_Tensor_set_Device(test_data[0]), \
+                                            PytorchModel_Tensor_set_Device(test_data[1]), \
+                                            PytorchModel_Tensor_set_Device(test_labels)
         test_outputs, _ = model(test_text, test_mask)
         _, test_argmax = torch.max(test_outputs, 1)
         if i == 0:
@@ -957,9 +895,9 @@ def main(args):
             test_true = np.concatenate((test_true, to_np(test_labels.squeeze())), axis=0)
 
     test_accuracy = metrics.accuracy_score(test_true, test_pred)
-    test_f1 = metrics.f1_score(test_true, test_pred, average='macro')
-    test_precision = metrics.precision_score(test_true, test_pred, average='macro')
-    test_recall = metrics.recall_score(test_true, test_pred, average='macro')
+    # test_f1 = metrics.f1_score(test_true, test_pred, average='macro')
+    # test_precision = metrics.precision_score(test_true, test_pred, average='macro')
+    # test_recall = metrics.recall_score(test_true, test_pred, average='macro')
 
     test_score_convert = [x[1] for x in test_score]
     test_aucroc = metrics.roc_auc_score(test_true, test_score_convert, average='macro')
@@ -971,18 +909,83 @@ def main(args):
     print(("Classification report:\n%s\n"
            % (metrics.classification_report(test_true, test_pred, digits=3))))
     print(("Classification confusion matrix:\n%s\n"
-           % (test_confusion_matrix)))
+           % test_confusion_matrix))
 
     print('Saving results')
 
 
-def parse_arguments(parser):
+def word2vec(post, word_id_map, sequence_len=28):
+    # W
+    word_embedding = []
+    mask = []
+    # length = []
+
+    for sentence in post:
+        sen_embedding = []
+        # seq_len = len(sentence) - 1
+        mask_seq = np.zeros(sequence_len, dtype=np.float32)
+        mask_seq[:len(sentence)] = 1.0
+        for i, word in enumerate(sentence):
+            sen_embedding.append(word_id_map[word])
+
+        while len(sen_embedding) < sequence_len:
+            sen_embedding.append(0)
+
+        word_embedding.append(copy.deepcopy(sen_embedding))
+        mask.append(copy.deepcopy(mask_seq))
+        # length.append(seq_len)
+    return word_embedding, mask
+
+
+def load_data_from_args(args):
+    train, validate, test = get_data()
+    # print(train[4][0])
+    word_vector_path = f'{data_root}' + '/word_embedding.pickle'
+    f = open(word_vector_path, 'rb')
+    weight = pickle.load(f)  # W, W2, word_idx_map, vocab
+    W, W2, word_idx_map, vocab, max_len = weight[0], weight[1], weight[2], weight[3], weight[4]
+    args.vocab_size = len(vocab)
+    # args.sequence_len = max_len
+    print("translate data to embedding")
+
+    word_embedding, mask = word2vec(validate['post_text'], word_idx_map, max_len)
+    # , W
+    validate['post_text'] = word_embedding
+    validate['mask'] = mask
+
+    print("translate test data to embedding")
+    word_embedding, mask = word2vec(test['post_text'], word_idx_map, max_len)
+    # , W
+    test['post_text'] = word_embedding
+    test['mask'] = mask
+    # test[-2]= transform(test[-2])
+    word_embedding, mask = word2vec(train['post_text'], word_idx_map, max_len)
+    # , W
+    train['post_text'] = word_embedding
+    train['mask'] = mask
+    print(("sequence length " + str(max_len)))
+    print(("Train Data Size is " + str(len(train['post_text']))))
+    print("Finished loading data ")
+    return train, validate, test, W, max_len
+
+
+def transform(event):
+    matrix = np.zeros([len(event), max(event) + 1])
+    # print("Translate  shape is " + str(matrix))
+    for i, l in enumerate(event):
+        matrix[i, l] = 1.00
+    return matrix
+
+
+def driver():
+    parser = argparse.ArgumentParser()
+
     parser.add_argument('training_file', type=str, metavar='<training_file>', help='')
     # parser.add_argument('validation_file', type=str, metavar='<validation_file>', help='')
     parser.add_argument('testing_file', type=str, metavar='<testing_file>', help='')
     parser.add_argument('output_file', type=str, metavar='<output_file>', help='')
 
-    parse.add_argument('--static', type=bool, default=True, help='')
+    parser.add_argument('--static', type=bool, default=True, help='')
     parser.add_argument('--sequence_length', type=int, default=28, help='')
     parser.add_argument('--class_num', type=int, default=2, help='')
     parser.add_argument('--hidden_dim', type=int, default=32, help='')
@@ -1003,74 +1006,18 @@ def parse_arguments(parser):
     parser.add_argument('--num_epochs', type=int, default=100, help='')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='')
     parser.add_argument('--event_num', type=int, default=10, help='')
-    return parser
 
-
-def word2vec(post, word_id_map, W):
-    word_embedding = []
-    mask = []
-    # length = []
-
-    for sentence in post:
-        sen_embedding = []
-        seq_len = len(sentence) - 1
-        mask_seq = np.zeros(args.sequence_len, dtype=np.float32)
-        mask_seq[:len(sentence)] = 1.0
-        for i, word in enumerate(sentence):
-            sen_embedding.append(word_id_map[word])
-
-        while len(sen_embedding) < args.sequence_len:
-            sen_embedding.append(0)
-
-        word_embedding.append(copy.deepcopy(sen_embedding))
-        mask.append(copy.deepcopy(mask_seq))
-        # length.append(seq_len)
-    return word_embedding, mask
-
-
-def load_data_from_args(args):
-    train, validate, test = get_data(args.text_only)
-    # print(train[4][0])
-    word_vector_path = f'{data_root}' + '/word_embedding.pickle'
-    f = open(word_vector_path, 'rb')
-    weight = pickle.load(f)  # W, W2, word_idx_map, vocab
-    W, W2, word_idx_map, vocab, max_len = weight[0], weight[1], weight[2], weight[3], weight[4]
-    args.vocab_size = len(vocab)
-    args.sequence_len = max_len
-    print("translate data to embedding")
-
-    word_embedding, mask = word2vec(validate['post_text'], word_idx_map, W)
-    validate['post_text'] = word_embedding
-    validate['mask'] = mask
-
-    print("translate test data to embedding")
-    word_embedding, mask = word2vec(test['post_text'], word_idx_map, W)
-    test['post_text'] = word_embedding
-    test['mask'] = mask
-    # test[-2]= transform(test[-2])
-    word_embedding, mask = word2vec(train['post_text'], word_idx_map, W)
-    train['post_text'] = word_embedding
-    train['mask'] = mask
-    print(("sequence length " + str(args.sequence_length)))
-    print(("Train Data Size is " + str(len(train['post_text']))))
-    print("Finished loading data ")
-    return train, validate, test, W
-
-
-def transform(event):
-    matrix = np.zeros([len(event), max(event) + 1])
-    # print("Translate  shape is " + str(matrix))
-    for i, l in enumerate(event):
-        matrix[i, l] = 1.00
-    return matrix
+    test = f'{data_root}' + '/test.pickle'
+    output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
+    args = parser.parse_args([
+            f'{data_root}' + '/train.pickle', test, output
+    ])
+    #    print(args)
+    main(args)
 
 
 if __name__ == '__main__':
-    parse = argparse.ArgumentParser()
-    parser = parse_arguments(parse)
-    train = f'{data_root}' + '/train.pickle'
-    test = f'{data_root}' + '/test.pickle'
-    output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
-    args = parser.parse_args([train, test, output])
-    #    print(args)
-    main(args)
+    from vzmi.mlx_dynamically_typed.common.runtime_information.SourceCodeInterpreter.Base._components.CommandlineArgument.io_op.to_FunctionArguments._alias.do_and_run import \
+        do_CommandlineArgument_to_FunctionArguments_and_run
+
+    do_CommandlineArgument_to_FunctionArguments_and_run(driver)
