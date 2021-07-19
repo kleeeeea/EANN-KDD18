@@ -1,19 +1,22 @@
+from typing import Dict
+
+from vzmi.mlx.common.Variable.GenericContainer.List.NestedList.OfGivenShape.MultiDimensionalArray.Dense.Base._OfBaseValueDistribution.io_ops.from_Object import Object_to_DenseMultiDimensionalArray
 from vzmi.mlx.common.Variable.GenericContainer.List.NestedList.OfGivenShape.MultiDimensionalArray.Dense.Base._OfBaseValueDistribution.io_ops.to_List import DenseMultiDimensionalArray_to_List
 from vzmi.mlx.common.runtime_information.OperatingSystem.Base._components.List_of_GPUs.Available._components.Indicies._bundle import LocalOperatingSystem_set_List_of_AvailableGPUs_Indicies
+from vzmi.mlx.data_science.Input.MultiDimensionalArray.Local.Batch.VectorizedText.Base._components.InstancesCollection_List.Base._components.InstanceCollection._bundle import \
+    Local_VectorizedText_MultiDimensionalArray_Input_InstanceCollection
 from vzmi.mlx.data_science.Prediction.ForMultiDimensionalArray.Base._components.Model.Base.Pytorch._components.Tensor._components.Device.set_op import PytorchModel_Tensor_set_Device
 from vzmi.mlx.data_science.Prediction.ForMultiDimensionalArray.Base._components.Model.Base.Pytorch._components.Tensor._components.Value.get_ import PytorchModel_Tensor_get_Value
 from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH
 from vzmi.mlx.io.local_file_system.File.Directory.Base.create import create_LocalDirectory
+from vzmi.mlx.io.local_file_system.File.NonDirectoryFile.LocalPickleFormattedFile.io_ops.to_Object import LocalPickleFormattedFile_to_Object
 from vzmi.mlx.software_engineering.viewing.Logger.log_op import Logger_log
 
 LocalOperatingSystem_set_List_of_AvailableGPUs_Indicies(1)
 
 import copy
-import pickle as pickle
-from random import sample
 
 import numpy as np
-# import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,30 +31,19 @@ from vzmi.mlx.software_engineering.viewing.Logger._backends.Local._bundle import
 filter_warnings()
 IS_VERBOSE = True
 # encoding=utf-8
-import re
 from collections import defaultdict
 
-import jieba
 import pandas as pd
 
 data_root = DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH + '/weibo/'
 
 
-def stopwordslist(filepath=f'{data_root}' + '/stop_words.txt'):
-    stopwords = {}
-    for line in open(filepath, 'r').readlines():
-        line = line.encode("utf-8").strip()
-        stopwords[line] = 1
-    # stopwords = [line.strip() for line in open(filepath, 'r', encoding='utf-8').readlines()]
-    return stopwords
-
-
-def clean_str_sst(string):
-    """
-    Tokenization/string cleaning for the SST dataset
-    """
-    string = re.sub("[，。 :,.；|-“”—_/nbsp+&;@、《》～（）()#O！：【】]", "", string)
-    return string.strip().lower()
+def List_of_List_get_Element_Count(all_text):
+    vocab = defaultdict(float)
+    for sentence in all_text:
+        for word in sentence:
+            vocab[word] += 1
+    return vocab
 
 
 # import sys
@@ -84,293 +76,17 @@ def clean_str_sst(string):
 #     return image_list
 
 
-def write_txt(data):
-    f = open(data_root + "top_n_data.txt", 'wb')
-    for line in data:
-        for l in line:
-            f.write(l + "\n")
-        f.write(b"\n")
-        f.write(b"\n")
-    f.close()
+# def write_txt(data):
+#     f = open(data_root + "top_n_data.txt", 'w)
+#     for line in data:
+#         for l in line:
+#             f.write(l + "\n")
+#         f.write(\n")
+#         f.write(\n")
+#     f.close()
 
 
-text_dict = {}
-
-
-def write_data(flag, image, text_only):
-    def read_post(flag1):
-        stop_words = stopwordslist()
-        pre_path = data_root + "tweets/"
-        file_list = [pre_path + "test_nonrumor.txt", pre_path + "test_rumor.txt",
-                     pre_path + "train_nonrumor.txt", pre_path + "train_rumor.txt"]
-        if flag1 == "train":
-            id1 = pickle.load(open(data_root + "train_id.pickle", 'rb'))
-        elif flag1 == "validate":
-            id1 = pickle.load(open(data_root + "validate_id.pickle", 'rb'))
-        elif flag1 == "test":
-            id1 = pickle.load(open(data_root + "test_id.pickle", 'rb'))
-        else:
-            raise NotImplementedError
-        post_content1 = []
-        # labels = []
-        # image_ids = []
-        # twitter_ids = []
-        data = []
-        column = ['post_id', 'image_id', 'original_post', 'post_text', 'label', 'event_label']
-        # key = -1
-        map_id = {}
-        top_data = []
-        for k, f in enumerate(file_list):
-
-            f = open(f, 'rb')
-            if (k + 1) % 2 == 1:
-                label = 0  ### real is 0
-            else:
-                label = 1  ####fake is 1
-
-            # twitter_id = 0
-            line_data = []
-            # top_line_data = []
-
-            for i, l in enumerate(f.readlines()):
-                # key += 1
-
-                # if int(key /3) in index:
-                # print(key/3)
-                # continue
-                l = str(l, "utf-8")
-                if (i + 1) % 3 == 1:
-                    line_data = []
-                    twitter_id = l.split('|')[0]
-                    line_data.append(twitter_id)
-
-                if (i + 1) % 3 == 2:
-                    line_data.append(l.lower())
-
-                if (i + 1) % 3 == 0:
-                    l = clean_str_sst(l)
-
-                    seg_list = jieba.cut_for_search(l)
-                    new_seg_list = []
-                    for word in seg_list:
-                        if word not in stop_words:
-                            new_seg_list.append(word)
-
-                    clean_l = " ".join(new_seg_list)
-                    if len(clean_l) > 10 and line_data[0] in id1:
-                        post_content1.append(l)
-                        line_data.append(l)
-                        line_data.append(clean_l)
-                        line_data.append(label)
-                        event = int(id1[line_data[0]])
-                        if event not in map_id:
-                            map_id[event] = len(map_id)
-                            event = map_id[event]
-                        else:
-                            event = map_id[event]
-
-                        line_data.append(event)
-
-                        data.append(line_data)
-
-            f.close()
-            # print(data)
-            #     return post_content
-
-        data_df = pd.DataFrame(np.array(data), columns=column)
-        write_txt(top_data)
-
-        return post_content1, data_df
-
-    post_content, post = read_post(flag)
-    print(("Original post length is " + str(len(post_content))))
-    print(("Original data frame is " + str(post.shape)))
-
-    # def find_most(db):
-    #     maxcount = max(len(v) for v in list(db.values()))
-    #     return [k for k, v in list(db.items()) if len(v) == maxcount]
-    #
-    # def select(train, selec_indices):
-    #     temp = []
-    #     for i in range(len(train)):
-    #         ele = list(train[i])
-    #         temp.append([ele[i] for i in selec_indices])
-    #         #   temp.append(np.array(train[i])[selec_indices])
-    #     return temp
-
-    #     def balance_event(data, event_list):
-    #         id = find_most(event_list)[0]
-    #         remove_indice = random.sample(range(min(event_list[id]), \
-    #                                             max(event_list[id])), int(len(event_list[id]) * 0.9))
-    #         select_indices = np.delete(range(len(data[0])), remove_indice)
-    #         return select(data, select_indices)
-
-    def paired(text_only1=False):
-        ordered_image = []
-        ordered_text = []
-        ordered_post = []
-        ordered_event = []
-        label = []
-        post_id = []
-        image_id_list = []
-        # image = []
-
-        image_id = ""
-        for i, id1 in enumerate(post['post_id']):
-            for image_id in post.iloc[i]['image_id'].split('|'):
-                image_id = image_id.split("/")[-1].split(".")[0]
-                if image_id in image:
-                    break
-
-            if text_only1 or image_id in image:
-                if not text_only1:
-                    image_name = image_id
-                    image_id_list.append(image_name)
-                    ordered_image.append(image[image_name])
-                ordered_text.append(post.iloc[i]['original_post'])
-                ordered_post.append(post.iloc[i]['post_text'])
-                ordered_event.append(post.iloc[i]['event_label'])
-                post_id.append(id1)
-
-                label.append(post.iloc[i]['label'])
-
-        label = np.array(label, dtype=np.int)
-        ordered_event = np.array(ordered_event, dtype=np.int)
-
-        print(("Label number is " + str(len(label))))
-        print(("Rummor number is " + str(sum(label))))
-        print(("Non rummor is " + str(len(label) - sum(label))))
-
-        #
-        # if flag == "test":
-        #     y = np.zeros(len(ordered_post))
-        # else:
-        #     y = []
-
-        data = {"post_text"    : np.array(ordered_post),
-                "original_post": np.array(ordered_text),
-                "image"        : ordered_image, "social_feature": [],
-                "label"        : np.array(label),
-                "event_label"  : ordered_event, "post_id": np.array(post_id),
-                "image_id"     : image_id_list}
-        # print(data['image'][0])
-
-        print(("data size is " + str(len(data["post_text"]))))
-
-        return data
-
-    paired_data = paired(text_only)
-
-    print(("paired post length is " + str(len(paired_data["post_text"]))))
-    print(("paried data has " + str(len(paired_data)) + " dimension"))
-    return paired_data
-
-
-def load_data(train, validate, test):
-    vocab = defaultdict(float)
-    all_text = list(train['post_text']) + list(validate['post_text']) + list(test['post_text'])
-    for sentence in all_text:
-        for word in sentence:
-            vocab[word] += 1
-    return vocab, all_text
-
-
-def get_W(word_vecs, k=32):
-    """
-    Get word matrix. W[i] is the vector for word indexed by i
-    """
-    # vocab_size = len(word_vecs)
-    word_idx_map = dict()
-    W = np.zeros(shape=(len(word_vecs) + 1, k), dtype='float32')
-    W[0] = np.zeros(k, dtype='float32')
-    i = 1
-    for word in word_vecs:
-        W[i] = word_vecs[word]
-        word_idx_map[word] = i
-        i += 1
-    return W, word_idx_map
-
-
-def add_unknown_words(word_vecs, vocab, min_df=1, k=32):
-    """
-    For words that occur in at least min_df documents, create a separate word vector.
-    0.25 is chosen so the unknown vectors have (approximately) same variance as pre-trained ones
-    """
-    for word in vocab:
-        if word not in word_vecs and vocab[word] >= min_df:
-            word_vecs[word] = np.random.uniform(-0.25, 0.25, k)
-
-
-def get_data():
-    text_only = True
-    # text_only = False
-    print("Text only")
-    image_list = []
-
-    train_data = write_data("train", image_list, text_only)
-    valiate_data = write_data("validate", image_list, text_only)
-    test_data = write_data("test", image_list, text_only)
-
-    print("loading data...")
-    # w2v_file = '../Data/GoogleNews-vectors-negative300.bin'
-    vocab, all_text = load_data(train_data, valiate_data, test_data)
-    # print(str(len(all_text)))
-
-    print(("number of sentences: " + str(len(all_text))))
-    print(("vocab size: " + str(len(vocab))))
-    max_l = len(max(all_text, key=len))
-    print(("max sentence length: " + str(max_l)))
-
-    #
-    #
-    word_embedding_path = data_root + "w2v.pickle"
-
-    w2v = pickle.load(open(word_embedding_path, 'rb'), encoding='latin1')
-    # print(temp)
-    # #
-    print("word2vec loaded!")
-    print(("num words already in word2vec: " + str(len(w2v))))
-    # w2v = add_unknown_words(w2v, vocab)
-    # file_path = data_root + "event_clustering.pickle"
-    # if not os.path.exists(file_path):
-    #     train = []
-    #     for l in train_data["post_text"]:
-    #         line_data = []
-    #         for word in l:
-    #             line_data.append(w2v[word])
-    #         line_data = np.matrix(line_data)
-    #         line_data = np.array(np.mean(line_data, 0))[0]
-    #         train.append(line_data)
-    #     train = np.array(train)
-    #     cluster = AgglomerativeClustering(n_clusters=15, affinity='cosine', linkage='complete')
-    #     cluster.fit(train)
-    #     y = np.array(cluster.labels_)
-    #     pickle.dump(y, open(file_path, 'wb+'))
-    # else:
-    # y = pickle.load(open(file_path, 'rb'))
-    # print("Event length is " + str(len(y)))
-    # center_count = {}
-    # for k, i in enumerate(y):
-    #     if i not in center_count:
-    #         center_count[i] = 1
-    #     else:
-    #         center_count[i] += 1
-    # print(center_count)
-    # train_data['event_label'] = y
-
-    #
-    print("word2vec loaded!")
-    print(("num words already in word2vec: " + str(len(w2v))))
-    add_unknown_words(w2v, vocab)
-    W, word_idx_map = get_W(w2v)
-    # # rand_vecs = {}
-    # # add_unknown_words(rand_vecs, vocab)
-    W2 = {}
-    # rand_vecs =
-    w_file = open(data_root + "word_embedding.pickle", "wb")
-    pickle.dump([W, W2, word_idx_map, vocab, max_l], w_file)
-    w_file.close()
-    return train_data, valiate_data, test_data
+# text_dict = {}
 
 
 # if __name__ == "__main__":
@@ -393,7 +109,7 @@ def get_data():
 #     #
 #     # #
 #     # #
-#     # word_embedding_path = data_root + "word_embedding.pickle"
+#     # word_embedding_path = data_root + "
 #     # if not os.path.exists(word_embedding_path):
 #     #     min_count = 1
 #     #     size = 32
@@ -405,9 +121,9 @@ def get_data():
 #     #     for word in w2v.wv.vocab:
 #     #         temp[word] = w2v[word]
 #     #     w2v = temp
-#     #     pickle.dump(w2v, open(word_embedding_path, 'wb+'))
+#     #     dump(w2v, open(word_embedding_path, 'wb+'))
 #     # else:
-#     #     w2v = pickle.load(open(word_embedding_path, 'rb'))
+#     #     w2v = load(open(word_embedding_path, 'r
 #     # # print(temp)
 #     # # #
 #     # print("word2vec loaded!")
@@ -417,7 +133,7 @@ def get_data():
 #     # file_path = data_root + "event_clustering.pickle"
 #     # # if not os.path.exists(file_path):
 #     # #     data = []
-#     # #     for l in train_data["post_text"]:
+#     # #     for l in train_data["
 #     # #         line_data = []
 #     # #         for word in l:
 #     # #             line_data.append(w2v[word])
@@ -430,9 +146,9 @@ def get_data():
 #     # #     cluster = AgglomerativeClustering(n_clusters=15, affinity='cosine', linkage='complete')
 #     # #     cluster.fit(data)
 #     # #     y = np.array(cluster.labels_)
-#     # #     pickle.dump(y, open(file_path, 'wb+'))
+#     # #     dump(y, open(file_path, 'wb+'))
 #     # # else:
-#     # # y = pickle.load(open(file_path, 'rb'))
+#     # # y = load(open(file_path, 'r
 #     # # print("Event length is " + str(len(y)))
 #     # # center_count = {}
 #     # # for k, i in enumerate(y):
@@ -451,28 +167,11 @@ def get_data():
 #     # # # rand_vecs = {}
 #     # # # add_unknown_words(rand_vecs, vocab)
 #     # W2 = rand_vecs = {}
-#     # pickle.dump([W, W2, word_idx_map, vocab, max_l], open(data_root + "word_embedding.pickle", "wb"))
+#     # dump([W, W2, word_idx_map, vocab, max_l],
 #     # print("dataset created!")
 
 
 # from logger import Logger
-
-class Rumor_Data(Dataset):
-    def __init__(self, dataset):
-        self.text = torch.from_numpy(np.array(dataset['post_text']))
-        # self.social_context = torch.from_numpy(np.array(dataset['social_feature']))
-        self.mask = torch.from_numpy(np.array(dataset['mask']))
-        self.label = torch.from_numpy(np.array(dataset['label']))
-        self.event_label = torch.from_numpy(np.array(dataset['event_label']))
-        print(('TEXT: %d, labe: %d, Event: %d'
-               % (len(self.text), len(self.label), len(self.event_label))))
-
-    def __len__(self):
-        return len(self.label)
-
-    def __getitem__(self, idx):
-        return (self.text[idx], self.mask[idx]), self.label[idx], self.event_label[idx]
-
 
 class ReverseLayerF(Function):
     # def __init__(self, lambd):
@@ -488,9 +187,9 @@ class ReverseLayerF(Function):
         return grad_output * -self.lambd
 
 
-def grad_reverse(x):
-    # noinspection PyCallingNonCallable
-    return ReverseLayerF()(x)
+# def grad_reverse(x):
+#     # noinspection PyCallingNonCallable
+#     return ReverseLayerF()(x)
 
 
 # Neural Network Model (1 hidden layer)
@@ -633,7 +332,8 @@ class CNN_Fusion(nn.Module):
             Logger_log(class_output.shape)
 
         ## Domain
-        reverse_feature = grad_reverse(text)
+        # noinspection PyCallingNonCallable
+        reverse_feature = ReverseLayerF()(text)
         if IS_VERBOSE:
             Logger_log(reverse_feature.shape)
 
@@ -651,52 +351,60 @@ class CNN_Fusion(nn.Module):
 #     return Variable(x)
 
 
-def to_np(x):
-    return x.data.cpu().numpy()
+# def to_np(x):
+#     return x.data.cpu().numpy()
 
 
-def select(train, selec_indices):
-    temp = []
-    for i in range(len(train)):
-        print(("length is " + str(len(train[i]))))
-        print(i)
-        # print(train[i])
-        ele = list(train[i])
-        temp.append([ele[i] for i in selec_indices])
-    return temp
+#
+# def make_weights_for_balanced_classes(event, nclasses=15):
+#     count = [0] * nclasses
+#     for item in event:
+#         count[item] += 1
+#     weight_per_class = [0.] * nclasses
+#     N = float(sum(count))
+#     for i in range(nclasses):
+#         weight_per_class[i] = N / float(count[i])
+#     weight = [0] * len(event)
+#     for idx, val in enumerate(event):
+#         # noinspection PyTypeChecker
+#         weight[idx] = weight_per_class[val]
+#     return weight
+
+#
+# def split_train_validation(train, percent):
+#     whole_len = len(train[0])
+#
+#     train_indices = (sample(list(range(whole_len)), int(whole_len * percent)))
+#     train_data = ..(train, train_indices)
+#     print(("train data size is " + str(len(train[3]))))
+#     # print()
+#
+#     validation = ...(train, np.delete(list(range(len(train[0]))), train_indices))
+#     print(("validation size is " + str(len(validation[3]))))
+#     print("train and validation data set has been splited")
+#
+#     return train_data, validation
+DOMAIN_LABEL_FIELD_NAME = 'domain_label'
 
 
-def make_weights_for_balanced_classes(event, nclasses=15):
-    count = [0] * nclasses
-    for item in event:
-        count[item] += 1
-    weight_per_class = [0.] * nclasses
-    N = float(sum(count))
-    for i in range(nclasses):
-        weight_per_class[i] = N / float(count[i])
-    weight = [0] * len(event)
-    for idx, val in enumerate(event):
-        # noinspection PyTypeChecker
-        weight[idx] = weight_per_class[val]
-    return weight
+class PytorchDatasetWithDomainLabel(Dataset):
+    def __init__(self, padded_sequences=None, masks=None, labels=None, event_label=None):
+        self.text = torch.from_numpy(padded_sequences)
+        # self.social_context = torch.from_numpy(np.array(dataset['social_feature']))
+        self.mask = torch.from_numpy(masks)
+        self.label = torch.from_numpy(labels)
+        self.event_label = torch.from_numpy(Object_to_DenseMultiDimensionalArray(event_label))
+        print(('TEXT: %d, labe: %d, Event: %d'
+               % (len(self.text), len(self.label), len(self.event_label))))
+
+    def __len__(self):
+        return len(self.label)
+
+    def __getitem__(self, idx):
+        return (self.text[idx], self.mask[idx]), self.label[idx], self.event_label[idx]
 
 
-def split_train_validation(train, percent):
-    whole_len = len(train[0])
-
-    train_indices = (sample(list(range(whole_len)), int(whole_len * percent)))
-    train_data = select(train, train_indices)
-    print(("train data size is " + str(len(train[3]))))
-    # print()
-
-    validation = select(train, np.delete(list(range(len(train[0]))), train_indices))
-    print(("validation size is " + str(len(validation[3]))))
-    print("train and validation data set has been splited")
-
-    return train_data, validation
-
-
-def main():
+def driver():
     print('loading data')
     #    dataset = DiabetesDataset(roottraining_file)
     #    train_loader = DataLoader(dataset=dataset,
@@ -705,19 +413,13 @@ def main():
     #                              num_workers=2)
 
     # MNIST Dataset
-    train, validation, test, W, max_len, vocab_size = load_data_from_args()
+    train_dataset, validate_dataset, test_dataset, W, _, vocab_size = load_data_from_args()
 
     # train, validation = split_train_validation(train,  1)
 
     # weights = make_weights_for_balanced_classes(train[-1], 15)
     # weights = torch.DoubleTensor(weights)
     # sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, len(weights))
-
-    train_dataset = Rumor_Data(train)
-
-    validate_dataset = Rumor_Data(validation)
-
-    test_dataset = Rumor_Data(test)  # not used
 
     # Data Loader (Input Pipeline)
     batch_size = 100
@@ -892,13 +594,13 @@ def main():
         test_outputs, _ = model(test_text, test_mask)
         _, test_argmax = torch.max(test_outputs, 1)
         if i == 0:
-            test_score = to_np(test_outputs.squeeze())
-            test_pred = to_np(test_argmax.squeeze())
-            test_true = to_np(test_labels.squeeze())
+            test_score = PytorchModel_Tensor_get_Value(test_outputs.squeeze(), do_return_dense_multidimensional_array=False)
+            test_pred = PytorchModel_Tensor_get_Value(test_argmax.squeeze(), do_return_dense_multidimensional_array=False)
+            test_true = PytorchModel_Tensor_get_Value(test_labels.squeeze(), do_return_dense_multidimensional_array=False)
         else:
-            test_score = np.concatenate((test_score, to_np(test_outputs.squeeze())), axis=0)
-            test_pred = np.concatenate((test_pred, to_np(test_argmax.squeeze())), axis=0)
-            test_true = np.concatenate((test_true, to_np(test_labels.squeeze())), axis=0)
+            test_score = np.concatenate((test_score, PytorchModel_Tensor_get_Value(test_outputs.squeeze(), do_return_dense_multidimensional_array=False)), axis=0)
+            test_pred = np.concatenate((test_pred, PytorchModel_Tensor_get_Value(test_argmax.squeeze(), do_return_dense_multidimensional_array=False)), axis=0)
+            test_true = np.concatenate((test_true, PytorchModel_Tensor_get_Value(test_labels.squeeze(), do_return_dense_multidimensional_array=False)), axis=0)
 
     test_accuracy = metrics.accuracy_score(test_true, test_pred)
     # test_f1 = metrics.f1_score(test_true, test_pred, average='macro')
@@ -920,106 +622,453 @@ def main():
     print('Saving results')
 
 
-def word2vec(post, word_id_map, sequence_len=28):
-    # W
-    word_embedding = []
-    mask = []
-    # length = []
+def create_word_embedding(vocab, k=32):
+    """
+    Get word matrix. W[i] is the vector for word indexed by i
+    """
 
-    for sentence in post:
-        sen_embedding = []
-        # seq_len = len(sentence) - 1
-        mask_seq = np.zeros(sequence_len, dtype=np.float32)
-        mask_seq[:len(sentence)] = 1.0
-        for i, word in enumerate(sentence):
-            sen_embedding.append(word_id_map[word])
+    word_embedding_path = data_root + "w2v.pickle"
 
-        while len(sen_embedding) < sequence_len:
-            sen_embedding.append(0)
+    token2array: Dict[str, np.ndarray] = LocalPickleFormattedFile_to_Object(word_embedding_path, encoding='latin1')
 
-        word_embedding.append(copy.deepcopy(sen_embedding))
-        mask.append(copy.deepcopy(mask_seq))
-        # length.append(seq_len)
-    return word_embedding, mask
+    # # print(temp)
+    # # #
+    # print("word2vec loaded!")
+    # print(("num words already in word2vec: " + str(len(token2array))))
+    # # w2v = add_unknown_words(w2v, vocab)
+    # # file_path = data_root + "event_clustering.pickle"
+    # # if not os.path.exists(file_path):
+    # #     train = []
+    # #     for l in train_data["post_text"]:
+    # #         line_data = []
+    # #         for word in l:
+    # #             line_data.append(w2v[word])
+    # #         line_data = np.matrix(line_data)
+    # #         line_data = np.array(np.mean(line_data, 0))[0]
+    # #         train.append(line_data)
+    # #     train = np.array(train)
+    # #     cluster = AgglomerativeClustering(n_clusters=15, affinity='cosine', linkage='complete')
+    # #     cluster.fit(train)
+    # #     y = np.array(cluster.labels_)
+    # #     dump(y, open(file_path, 'wb+'))
+    # # else:
+    # # y = load(open(file_path, 'r
+    # # print("Event length is " + str(len(y)))
+    # # center_count = {}
+    # # for k, i in enumerate(y):
+    # #     if i not in center_count:
+    # #         center_count[i] = 1
+    # #     else:
+    # #         center_count[i] += 1
+    # # print(center_count)
+    # # train_data['event_label'] = y
+    #
+    # #
+    # print("word2vec loaded!")
+    # print(("num words already in word2vec: " + str(len(token2array))))
+
+    def add_unknown_words(word_vecs, vocab1, min_df=1, k1=32):
+        """
+        For words that occur in at least min_df documents, create a separate word vector.
+        0.25 is chosen so the unknown vectors have (approximately) same variance as pre-trained ones
+        """
+        for word1 in vocab1:
+            if word1 not in word_vecs and vocab1[word1] >= min_df:
+                word_vecs[word1] = np.random.uniform(-0.25, 0.25, k1)
+
+    add_unknown_words(token2array, vocab)
+
+    # vocab_size = len(word_vecs)
+    word_idx_map = dict()
+    W = np.zeros(shape=(len(token2array) + 1, k), dtype='float32')
+    W[0] = np.zeros(k, dtype='float32')
+    i = 1
+    for word in token2array:
+        W[i] = token2array[word]
+        word_idx_map[word] = i
+        i += 1
+    return W, word_idx_map
+
+
+def get__text__label__dict_of_metadata_list(flag):
+    # def read_post(flag):
+
+    def stopwordslist(filepath=f'{data_root}' + '/stop_words.txt'):
+        stopwords = {}
+        for line in open(filepath, 'r').readlines():
+            line = line.encode("utf-8").strip()
+            stopwords[line] = 1
+        # stopwords = [line.strip() for line in open(filepath, 'r', encoding='utf-8').readlines()]
+        return stopwords
+
+    stop_words = stopwordslist()
+    pre_path = data_root + "tweets/"
+    file_list = [pre_path + "test_nonrumor.txt", pre_path + "test_rumor.txt",
+                 pre_path + "train_nonrumor.txt", pre_path + "train_rumor.txt"]
+    from vzmi.mlx.io.local_file_system.File.NonDirectoryFile.LocalPickleFormattedFile.io_ops.to_Object import LocalPickleFormattedFile_to_Object
+    if flag == "train":
+        id1 = LocalPickleFormattedFile_to_Object(data_root + "train_id.pickle")
+    elif flag == "validate":
+        id1 = LocalPickleFormattedFile_to_Object(data_root + "validate_id.pickle")
+    elif flag == "test":
+        id1 = LocalPickleFormattedFile_to_Object(data_root + "test_id.pickle")
+    else:
+        raise NotImplementedError
+    post_content = []
+    # labels = []
+    # image_ids = []
+    # twitter_ids = []
+    data = []
+    labels = []
+    event_labels = []
+    post_texts = []
+    # column = ['post_id', 'image_id', 'original_post', 'post_text', 'label', 'event_label']
+    # key = -1
+    map_id = {}
+    # top_data = []
+    for k, f in enumerate(file_list):
+
+        # f = open(f, 'rb')
+        if (k + 1) % 2 == 1:
+            label = 0  ### real is 0
+        else:
+            label = 1  ####fake is 1
+
+        # twitter_id = 0
+        line_data = []
+        # top_line_data = []
+
+        from vzmi.mlx.io.local_file_system.File.NonDirectoryFile.LocalTextFile.Base.io_ops.to__List_of_Text import LocalTextFile__to__List_of_Text
+        for i, l in enumerate(LocalTextFile__to__List_of_Text(f, do_strip=False)):
+            # key += 1
+
+            # if int(key /3) in index:
+            # print(key/3)
+            # continue
+            # l = str(l, "utf-8")
+            if (i + 1) % 3 == 1:
+                line_data = []
+                twitter_id = l.split('|')[0]
+                line_data.append(twitter_id)
+
+            if (i + 1) % 3 == 2:
+                line_data.append(l.lower())
+
+            if (i + 1) % 3 == 0:
+
+                def clean_str_sst(string):
+                    """
+                    Tokenization/string cleaning for the SST dataset
+                    """
+                    import re
+                    string = re.sub("[，。 :,.；|-“”—_/nbsp+&;@、《》～（）()#O！：【】]", "", string)
+                    return string.strip().lower()
+
+                l = clean_str_sst(l)
+
+                import jieba
+                seg_list = jieba.cut_for_search(l)
+                new_seg_list = []
+                for word in seg_list:
+                    if word not in stop_words:
+                        new_seg_list.append(word)
+
+                clean_l = " ".join(new_seg_list)
+                if len(clean_l) > 10 and line_data[0] in id1:
+                    post_content.append(l)
+                    line_data.append(l)
+                    line_data.append(clean_l)
+                    post_texts.append(clean_l)
+                    line_data.append(label)
+                    labels.append(label)
+                    event = int(id1[line_data[0]])
+                    if event not in map_id:
+                        map_id[event] = len(map_id)
+                        event = map_id[event]
+                    else:
+                        event = map_id[event]
+
+                    line_data.append(event)
+                    event_labels.append(event)
+                    data.append(line_data)
+
+        # print(data)
+        #     return post_content
+
+    # data_df = pd.DataFrame(np.array(data), columns=column)
+    # data_df=LocalDataFrame_set_Rows(data)
+    return post_texts, \
+           labels, \
+           {DOMAIN_LABEL_FIELD_NAME: event_labels}
+
+    # write_txt(top_data)
+
+    # return post_content, data_df
+
+    # post_content, data_df = read_post(flag)
+    # print(("Original post length is " + str(len(post_content))))
+    # print(("Original data frame is " + str(post.shape)))
+
+    # def find_most(db):
+    #     maxcount = max(len(v) for v in list(db.values()))
+    #     return [k for k, v in list(db.items()) if len(v) == maxcount]
+    #
+    # def select(train, selec_indices):
+    #     temp = []
+    #     for i in range(len(train)):
+    #         print(("length is " + str(len(train[i]))))
+    #         print(i)
+    #         # print(train[i])
+    #         ele = list(train[i])
+    #         temp.append([ele[i] for i in selec_indices])
+    #     return temp
+    #
+    # def select(train, selec_indices):
+    #     temp = []
+    #     for i in range(len(train)):
+    #         ele = list(train[i])
+    #         temp.append([ele[i] for i in selec_indices])
+    #         #   temp.append(np.array(train[i])[selec_indices])
+    #     return temp
+
+    #     def balance_event(data, event_list):
+    #         id = find_most(event_list)[0]
+    #         remove_indice = random.sample(range(min(event_list[id]), \
+    #                                             max(event_list[id])), int(len(event_list[id]) * 0.9))
+    #         select_indices = np.delete(range(len(data[0])), remove_indice)
+    #         return select(data, select_indices)
+
+    # def paired():
+    # ordered_image = []
+    # ordered_text = []
+    # ordered_post = []
+    # ordered_event = []
+    # label = []
+    # post_id = []
+    # # image_id_list = []
+    # # image = []
+    #
+    # # image_id = ""
+    # for i, id1 in enumerate(data_df['post_id']):
+    #     # for image_id in post.iloc[i]['image_id'].split('|'):
+    #     #     image_id = image_id.split("/")[-1].split(".")[0]
+    #     #     if image_id in image:
+    #     #         break
+    #
+    #     # if text_only1 or image_id in image:
+    #     # if not text_only1:
+    #     #     image_name = image_id
+    #     #     image_id_list.append(image_name)
+    #     #     ordered_image.append(image[image_name])
+    #     ordered_text.append(data_df.iloc[i]['original_post'])
+    #     ordered_post.append(data_df.iloc[i]['post_text'])
+    #     ordered_event.append(data_df.iloc[i]['event_label'])
+    #     post_id.append(id1)
+    #
+    #     label.append(data_df.iloc[i]['label'])
+    #
+    # label = np.array(label, dtype=np.int)
+    # ordered_event = np.array(ordered_event, dtype=np.int)
+    #
+    # print(("Label number is " + str(len(label))))
+    # print(("Rummor number is " + str(sum(label))))
+    # print(("Non rummor is " + str(len(label) - sum(label))))
+    #
+    # #
+    # # if flag == "test":
+    # #     y = np.zeros(len(ordered_post))
+    # # else:
+    # #     y = []
+    # data = {
+    #         "post_text"  : np.array(ordered_post),
+    #         # "original_post": np.array(ordered_text),
+    #         # "image"        : ordered_image, "social_feature": [],
+    #         "label"      : np.array(label),
+    #         "event_label": ordered_event,
+    #         # "post_id": np.array(post_id),
+    #         # "image_id"     : image_id_list
+    # }
+    # # print(data['image'][0])
+    #
+    # # print(("data size is " + str(len(data["post_text"]))))
+    # return data
+
+    # paired_data =
+
+    # print(("paired post length is " + str(len(paired_data["post_text"]))))
+    # print(("paried data has " + str(len(paired_data)) + " dimension"))
+    # return paired()
+
+
+def get_data():
+    # text_only = True
+    # text_only = False
+    # print("Text only")
+    # image_list = []
+
+    text, label, dict_of_metadata_list = get__text__label__dict_of_metadata_list("train")
+    train_insts = Local_VectorizedText_MultiDimensionalArray_Input_InstanceCollection(
+            texts=text,
+            labels=label,
+            meta_data_list_dict=dict_of_metadata_list
+    )
+    text, label, dict_of_metadata_list = get__text__label__dict_of_metadata_list("validate")
+    validation_insts = Local_VectorizedText_MultiDimensionalArray_Input_InstanceCollection(
+            texts=text,
+            labels=label,
+            meta_data_list_dict=dict_of_metadata_list
+    )
+    text, label, dict_of_metadata_list = get__text__label__dict_of_metadata_list("test")
+    test_insts = Local_VectorizedText_MultiDimensionalArray_Input_InstanceCollection(
+            texts=text,
+            labels=label,
+            meta_data_list_dict=dict_of_metadata_list
+    )
+    # , image_list, text_only
+    # , image_list, text_only
+    # , image_list, text_only
+
+    # print("loading data...")
+
+    # w2v_file = '../Data/GoogleNews-vectors-negative300.bin'
+    # train_data['post_text']
+    #  valiate_data['post_text']
+    #  test_data['post_text']
+    all_text = list(train_insts.texts) + \
+               list(validation_insts.texts) + \
+               list(test_insts.texts)
+
+    token2count = List_of_List_get_Element_Count(all_text)
+    # print(str(len(all_text)))
+
+    # print(("number of sentences: " + str(len(all_text))))
+    # print(("vocab size: " + str(len(token2count))))
+    # print(("max sentence length: " + str(max_l)))
+
+    #
+    #
+
+    W, token2index = create_word_embedding(vocab=token2count)
+    # # rand_vecs = {}
+    # # add_unknown_words(rand_vecs, vocab)
+    # W2 = {}
+    # rand_vecs =
+    # Object_to_LocalPickleFormattedFile(
+    #         [W, W2, word_idx_map, vocab, max_l],
+    #         data_root + "
+    # )
+    # (, open(, "w
+    # w_file.close()
+    return train_insts, validation_insts, test_insts, [W, token2index, token2count, len(max(all_text, key=len))]
 
 
 def load_data_from_args():
-    train, validate, test = get_data()
+    train, validate, test, (W, word_idx_map, vocab, max_len) = get_data()
     # print(train[4][0])
-    word_vector_path = f'{data_root}' + '/word_embedding.pickle'
-    f = open(word_vector_path, 'rb')
-    weight = pickle.load(f)  # W, W2, word_idx_map, vocab
-    W, W2, word_idx_map, vocab, max_len = weight[0], weight[1], weight[2], weight[3], weight[4]
+    # f = open(word_vector_path, 'r
+    # weight = LocalPickleFormattedFile_to_Object(f'{data_root}' + '/
+    # # load(f)  # W, W2, word_idx_map, vocab
+    #  = weight[0], weight[1], weight[2], weight[3], weight[4]
     vocab_size = len(vocab)
     # sequence_len = max_len
     print("translate data to embedding")
 
-    word_embedding, mask = word2vec(validate['post_text'], word_idx_map, max_len)
+    def word2vec(post, word_id_map, sequence_len=28):
+        # W
+        word_embedding1 = []
+        mask1 = []
+        # length = []
+
+        for sentence in post:
+            sen_embedding = []
+            # seq_len = len(sentence) - 1
+            mask_seq = np.zeros(sequence_len, dtype=np.float32)
+            mask_seq[:len(sentence)] = 1.0
+            for i, word in enumerate(sentence):
+                sen_embedding.append(word_id_map[word])
+
+            while len(sen_embedding) < sequence_len:
+                sen_embedding.append(0)
+
+            word_embedding1.append(copy.deepcopy(sen_embedding))
+            mask1.append(copy.deepcopy(mask_seq))
+            # length.append(seq_len)
+        return Object_to_DenseMultiDimensionalArray(word_embedding1) , Object_to_DenseMultiDimensionalArray(mask1)
+
+    word_embedding, mask = word2vec(validate.texts, word_idx_map, max_len)
     # , W
-    validate['post_text'] = word_embedding
-    validate['mask'] = mask
+    # validate.texts = word_embedding
+    # validate['mask'] = mask
+    #  = Rumor_Data(validate)
+    validate_dataset = PytorchDatasetWithDomainLabel(word_embedding, masks=mask, labels=validate.labels, event_label=validate.meta_data_list_dict[DOMAIN_LABEL_FIELD_NAME])
 
     print("translate test data to embedding")
-    word_embedding, mask = word2vec(test['post_text'], word_idx_map, max_len)
+    word_embedding, mask = word2vec(test.texts, word_idx_map, max_len)
     # , W
-    test['post_text'] = word_embedding
-    test['mask'] = mask
+    # test['post_text'] = word_embedding
+    # test['mask'] = mask
+    test_dataset = PytorchDatasetWithDomainLabel(word_embedding, masks=mask, labels=test.labels, event_label=test.meta_data_list_dict[DOMAIN_LABEL_FIELD_NAME])
+
+    # def transform(event):
+    #     matrix = np.zeros([len(event), max(event) + 1])
+    #     # print("Translate  shape is " + str(matrix))
+    #     for i, l in enumerate(event):
+    #         matrix[i, l] = 1.00
+    #     return matrix
+
     # test[-2]= transform(test[-2])
-    word_embedding, mask = word2vec(train['post_text'], word_idx_map, max_len)
+    word_embedding, mask = word2vec(train.texts, word_idx_map, max_len)
     # , W
-    train['post_text'] = word_embedding
-    train['mask'] = mask
-    print(("sequence length " + str(max_len)))
-    print(("Train Data Size is " + str(len(train['post_text']))))
-    print("Finished loading data ")
-    return train, validate, test, W, max_len, vocab_size
+    # train.texts =
+    # train['mask'] =
+    train_dataset = PytorchDatasetWithDomainLabel(word_embedding, masks=mask, labels=train.labels, event_label=train.meta_data_list_dict[DOMAIN_LABEL_FIELD_NAME])
+
+    # print(("sequence length " + str(max_len)))
+    # print(("Train Data Size is " + str(len(train.texts))))
+    # print("Finished loading data ")
+
+    # = Rumor_Data(test)  # not used
+    return train_dataset, validate_dataset, test_dataset, W, max_len, vocab_size
 
 
-def transform(event):
-    matrix = np.zeros([len(event), max(event) + 1])
-    # print("Translate  shape is " + str(matrix))
-    for i, l in enumerate(event):
-        matrix[i, l] = 1.00
-    return matrix
-
-
-def driver():
-    # parser = argparse.ArgumentParser()
-    #
-    # parser.add_argument('training_file', type=str, metavar='<training_file>', help='')
-    # # parser.add_argument('validation_file', type=str, metavar='<validation_file>', help='')
-    # parser.add_argument('testing_file', type=str, metavar='<testing_file>', help='')
-    # parser.add_argument('output_file', type=str, metavar='<output_file>', help='')
-    #
-    # parser.add_argument('--static', type=bool, default=True, help='')
-    # parser.add_argument('--sequence_length', type=int, default=28, help='')
-    # parser.add_argument('--class_num', type=int, default=2, help='')
-    # parser.add_argument('--hidden_dim', type=int, default=32, help='')
-    # parser.add_argument('--embed_dim', type=int, default=32, help='')
-    # parser.add_argument('--vocab_size', type=int, default=300, help='')
-    # parser.add_argument('--dropout', type=int, default=0.5, help='')
-    # parser.add_argument('--filter_num', type=int, default=20, help='')
-    # parser.add_argument('--lambd', type=int, default=1, help='')
-    # parser.add_argument('--text_only', type=bool, default=True, help='')
-    #
-    # #    parser.add_argument('--sequence_length', type = int, default = 28, help = '')
-    # #    parser.add_argument('--input_size', type = int, default = 28, help = '')
-    # #    parser.add_argument('--hidden_size', type = int, default = 128, help = '')
-    # #    parser.add_argument('--num_layers', type = int, default = 2, help = '')
-    # #    parser.add_argument('--num_classes', type = int, default = 10, help = '')
-    # parser.add_argument('--d_iter', type=int, default=3, help='')
-    # parser.add_argument('--batch_size', type=int, default=100, help='')
-    # parser.add_argument('--num_epochs', type=int, default=100, help='')
-    # parser.add_argument('--learning_rate', type=float, default=0.001, help='')
-    # parser.add_argument('--event_num', type=int, default=10, help='')
-
-    # test = f'{data_root}' + '/test.pickle'
-    # output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
-    # args = parser.parse_args([
-    #         f'{data_root}' + '/train.pickle', test, output
-    # ])
-    #    print(args)
-    main()
+#
+# def driver():
+#     # parser = argparse.ArgumentParser()
+#     #
+#     # parser.add_argument('training_file', type=str, metavar='<training_file>', help='')
+#     # # parser.add_argument('validation_file', type=str, metavar='<validation_file>', help='')
+#     # parser.add_argument('testing_file', type=str, metavar='<testing_file>', help='')
+#     # parser.add_argument('output_file', type=str, metavar='<output_file>', help='')
+#     #
+#     # parser.add_argument('--static', type=bool, default=True, help='')
+#     # parser.add_argument('--sequence_length', type=int, default=28, help='')
+#     # parser.add_argument('--class_num', type=int, default=2, help='')
+#     # parser.add_argument('--hidden_dim', type=int, default=32, help='')
+#     # parser.add_argument('--embed_dim', type=int, default=32, help='')
+#     # parser.add_argument('--vocab_size', type=int, default=300, help='')
+#     # parser.add_argument('--dropout', type=int, default=0.5, help='')
+#     # parser.add_argument('--filter_num', type=int, default=20, help='')
+#     # parser.add_argument('--lambd', type=int, default=1, help='')
+#     # parser.add_argument('--text_only', type=bool, default=True, help='')
+#     #
+#     # #    parser.add_argument('--sequence_length', type = int, default = 28, help = '')
+#     # #    parser.add_argument('--input_size', type = int, default = 28, help = '')
+#     # #    parser.add_argument('--hidden_size', type = int, default = 128, help = '')
+#     # #    parser.add_argument('--num_layers', type = int, default = 2, help = '')
+#     # #    parser.add_argument('--num_classes', type = int, default = 10, help = '')
+#     # parser.add_argument('--d_iter', type=int, default=3, help='')
+#     # parser.add_argument('--batch_size', type=int, default=100, help='')
+#     # parser.add_argument('--num_epochs', type=int, default=100, help='')
+#     # parser.add_argument('--learning_rate', type=float, default=0.001, help='')
+#     # parser.add_argument('--event_num', type=int, default=10, help='')
+#
+#     # test = f'{data_root}' + '/test.pickle'
+#     # output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
+#     # args = parser.parse_args([
+#     #         f'{data_root}' + '/train.pickle', test, output
+#     # ])
+#     #    print(args)
+#     main()
 
 
 if __name__ == '__main__':
