@@ -7,7 +7,7 @@ from vzmi.mlx.data_science.Input.MultiDimensionalArray.Local.Batch.VectorizedTex
     Local_VectorizedText_MultiDimensionalArray_Input_InstanceCollection
 from vzmi.mlx.data_science.Prediction.ForMultiDimensionalArray.Base._components.Model.Base.Pytorch._components.Tensor._components.Device.set_op import PytorchModel_Tensor_set_Device
 from vzmi.mlx.data_science.Prediction.ForMultiDimensionalArray.Base._components.Model.Base.Pytorch._components.Tensor._components.Value.get_ import PytorchModel_Tensor_get_Value
-from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH
+from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import texts_root__LOCAL_PATH
 from vzmi.mlx.io.local_file_system.File.Directory.Base.create import create_LocalDirectory
 from vzmi.mlx.io.local_file_system.File.NonDirectoryFile.LocalPickleFormattedFile.io_ops.to_Object import LocalPickleFormattedFile_to_Object
 from vzmi.mlx.software_engineering.viewing.Logger.log_op import Logger_log
@@ -25,7 +25,7 @@ from sklearn import metrics
 from torch.autograd import Function
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
-from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import LOGS_ROOT_LOCAL_PATH
+from vzmi.mlx.io.local_file_system.File.Base._components.Path.Base._constants import logs_root__LOCAL_PATH
 from vzmi.mlx.software_engineering.viewing.Logger._backends.Local._bundle import filter_warnings
 
 filter_warnings()
@@ -33,9 +33,7 @@ IS_VERBOSE = True
 # encoding=utf-8
 from collections import defaultdict
 
-import pandas as pd
-
-data_root = DATA_INPUT_TEXTS_ROOT__LOCAL_DIRECTORY_PATH + '/weibo/'
+data_root = texts_root__LOCAL_PATH + '/weibo/'
 
 
 def List_of_List_get_Element_Count(all_text):
@@ -562,7 +560,7 @@ def driver():
 
         if validate_acc > best_validate_acc:
             best_validate_acc = validate_acc
-            output_file = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
+            output_file = f'{logs_root__LOCAL_PATH}''/eann/output/'
             create_LocalDirectory(output_file)
             best_validate_dir = output_file + str(epoch + 1) + '_text.pkl'
             torch.save(model.state_dict(), best_validate_dir)
@@ -993,7 +991,7 @@ def load_data_from_args():
             word_embedding1.append(copy.deepcopy(sen_embedding))
             mask1.append(copy.deepcopy(mask_seq))
             # length.append(seq_len)
-        return Object_to_DenseMultiDimensionalArray(word_embedding1) , Object_to_DenseMultiDimensionalArray(mask1)
+        return Object_to_DenseMultiDimensionalArray(word_embedding1), Object_to_DenseMultiDimensionalArray(mask1)
 
     word_embedding, mask = word2vec(validate.texts, word_idx_map, max_len)
     # , W
@@ -1063,7 +1061,7 @@ def load_data_from_args():
 #     # parser.add_argument('--event_num', type=int, default=10, help='')
 #
 #     # test = f'{data_root}' + '/test.pickle'
-#     # output = f'{LOGS_ROOT_LOCAL_PATH}''/eann/output/'
+#     # output = f'{logs_root__LOCAL_PATH}''/eann/output/'
 #     # args = parser.parse_args([
 #     #         f'{data_root}' + '/train.pickle', test, output
 #     # ])
